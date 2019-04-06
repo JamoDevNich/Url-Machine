@@ -1,5 +1,6 @@
 import sys; # args
 import os; # files
+import re; # regex
 from fuzzywuzzy import fuzz;
 from fuzzywuzzy import process;
 
@@ -15,7 +16,8 @@ class Storage:
 
     def _get(self, file) -> list:
         file_contents = "";
-        with open(file, "r+") as f:
+        with open(file, "a+") as f:
+            f.seek(0);
             file_contents = f.read().splitlines();
         return file_contents;
 
@@ -43,7 +45,12 @@ class Compare:
         fuzzy_matches_confidence = 0.0;
         for match in range(0, fuzzy_matches_count):
             fuzzy_matches_total += fuzzy_result[match][1];
-        fuzzy_matches_confidence = (fuzzy_matches_total / (fuzzy_matches_count * 100)) * 100;
+        # a non existent dataset causes division by zero and array index issues
+        if fuzzy_matches_count > 0 and fuzzy_matches_total > 0:
+            fuzzy_matches_confidence = (fuzzy_matches_total / (fuzzy_matches_count * 100)) * 100;
+        else:
+            fuzzy_result.append(["", 0]);
+        # should also return the amount of times it is present in the result list
         return [fuzzy_matches_confidence, fuzzy_matches_count, fuzzy_result[0]];
 
     @staticmethod
@@ -63,6 +70,12 @@ class Compare:
             if word.lower() in a:
                 sql_keyword_coverage += 1;
         return (sql_keyword_coverage/len(sql_keywords)) * 100;
+
+    @staticmethod
+    def exocity_rate(a) -> float:
+        e_url_original = a;
+        e_url_stripped = re.sub(r"(%[A-E0-9]{2})|([^A-Z0-9\?\&\ \/\=\_\-\.])", "", e_url_original, flags=re.IGNORECASE); # https://regex101.com/r/Xd73oL/1
+        return 100-int(fuzz.ratio(e_url_original, e_url_stripped));
 
 
 def main(args):
@@ -87,26 +100,38 @@ def main(args):
         res_trusted_percent_topmatch = res_trusted[2][1];
         res_untrusted_percent_topmatch = res_untrusted[2][1];
         res_trusted_untrusted_top_ratio = fuzz.ratio(res_trusted[2][0], res_untrusted[2][0]);
+        res_exocity_level = Compare.exocity_rate(input_url);
 
         print("query: " + input_url);
         print("sql cov: " + str(res_sql_coverage));
-        print("dsize: " + str(dataset_size));
-        print("threat: " + str(res_untrusted_percent));
-        print("trust: " + str(res_trusted_percent));
-        #print("similar: " + str(res_trusted_untrusted_top_ratio));
+        print("exocity: " + str(res_exocity_level));
+        print("dataset: " + str(dataset_size));
+        print("known threat: " + str(res_untrusted_percent));
+        print("known trust: " + str(res_trusted_percent));
 
-        print("top threat: " + str(res_untrusted[2]));
-        print("top trust: " + str(res_trusted[2]));
+        print("top known threat: " + str(res_untrusted[2]));
+        print("top known trust: " + str(res_trusted[2]));
 
-        if res_sql_coverage > 7:
+        # if there is less data then the rules have just a bit more effect to tip the scales
+        if dataset_size < 5:
+            print("not much data, switching to slightly less aggressive bias");
+            if res_exocity_level == 0 and res_sql_coverage == 0:
+                bias_trusted += 1;
+
+        if res_exocity_level is 0:
+            bias_trusted += 1;
+        elif res_exocity_level > 70:
+            bias_untrusted += 2;
+        elif res_exocity_level > 5:
             bias_untrusted += 1;
 
         if res_sql_coverage > 20:
+            bias_untrusted += 2;
+        elif res_sql_coverage > 7:
             bias_untrusted += 1;
 
         if res_trusted_percent_topmatch > 99:
             bias_trusted += 2;
-
         elif res_untrusted_percent > 50:
             bias_untrusted += 1;
 
@@ -127,13 +152,14 @@ def main(args):
             if abs(res_untrusted_percent - res_trusted_percent) < 10:
                 bias_untrusted += 1;
 
-        print("\n");
+        print("");
 
         # Save the results to the storage
         if bias_trusted == bias_untrusted:
             print("decision inconclusive, human oversight necessary");
         elif bias_trusted > bias_untrusted:
-            if res_untrusted_percent < 30:
+            # change below to an exponential equation to calculate based on dataset size
+            if res_untrusted_percent < 30 or (dataset_size < 50 and res_untrusted_percent < 50):
                 print("trusted (saving to memory)");
                 storage.add_trusted(input_url);
             else:
